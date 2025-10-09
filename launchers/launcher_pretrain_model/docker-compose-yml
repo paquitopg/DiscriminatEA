@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  simple_hhea_pretrain_service:
+    image:  sinequa:5000/simple_hhea:0.1.0
+    container_name: simple_hhea_pretrain_service
+
+    cpuset: ${CPU_IDS}
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      HF_HOME: "/tmp/hf_cache"
+      HF_TOKEN: "${HF_TOKEN}"
+      DATASET: "${DATASET}"
+      LR: "${LR}"
+      WD: "${WD}"
+      GAMMA: "${GAMMA}"
+      EPOCHS: "${EPOCHS}"
+      CUDA: "${CUDA}"
+      RANDOM_SEED: "${RANDOM_SEED}"
+      HIT_K: "${HIT_K}"
+      CSLS_K: "${CSLS_K}"
+
+    user: "${USER_UID}:${USER_GID}"  # Define USER_UID and USER_GID in .env file
+
+    group_add:
+      - "${DOCKER_GID}"  # Define DOCKER_GID in .env file
+
+    working_dir: /workspace
+
+    volumes:
+      - /raid/ml-data/paco/simple_hhea_data:/workspace/data
+      - /home/paco/projects/simple-HHEA/trained_models:/workspace/trained_models
+      - /home/paco/projects/simple-HHEA/results:/workspace/results
+      - /tmp/hf_cache_${USER_UID}:/tmp/hf_cache
+
+    command:
+      [
+        "python", "-m", "discriminatEA.main_discriminatEA",
+        "--data", "${DATASET}",
+        "--lr", "${LR}",
+        "--wd", "${WD}",
+        "--gamma", "${GAMMA}",
+        "--epochs", "${EPOCHS}",
+        "--cuda", "${CUDA}",
+        "--random_seed", "${RANDOM_SEED}",
+        "--hit_k", "1", "5", "10",
+        "--csls_k", "${CSLS_K}",
+        "--save-model"
+      ]

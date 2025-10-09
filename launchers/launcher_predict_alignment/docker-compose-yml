@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  simple_hhea_predict_service:
+    image:  sinequa:5000/simple_hhea:0.1.0
+    container_name: simple_hhea_predict_service
+
+    cpuset: ${CPU_IDS}
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      HF_HOME: "/tmp/hf_cache"
+      HF_TOKEN: "${HF_TOKEN}"
+      DATASET: "${DATASET}"
+      MODEL_PATH: "${MODEL_PATH}"
+      CUDA: "${CUDA}"
+      NUM_CANDIDATES: "${NUM_CANDIDATES}"
+      SCORING: "${SCORING}"
+      EVALUATE: "${EVALUATE}"
+      OUTPUT: "${OUTPUT}"
+
+    user: "${USER_UID}:${USER_GID}"
+
+    group_add:
+      - "${DOCKER_GID}"
+
+    working_dir: /workspace
+
+    volumes:
+      - /raid/ml-data/paco/simple_hhea_data:/workspace/data
+      - /home/paco/projects/simple-HHEA/trained_models:/workspace/trained_models
+      - /home/paco/projects/simple-HHEA/results:/workspace/results
+      - /tmp/hf_cache_${USER_UID}:/tmp/hf_cache
+      - /home/paco/projects/simple-HHEA/predictions:/workspace/predictions
+
+    command:
+      [
+        "python", "-m", "discriminatEA.predict_alignment",
+        "--data", "${DATASET}",
+        "--model-path", "${MODEL_PATH}",
+        "--cuda", "${CUDA}",
+        "--num-candidates", "${NUM_CANDIDATES}",
+        "--scoring", "${SCORING}",
+        "--output", "/workspace/predictions/${DATASET}/${OUTPUT}",
+        "--evaluate"
+      ]

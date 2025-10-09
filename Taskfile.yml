@@ -1,0 +1,32 @@
+version: '3'
+
+vars:
+  PACKAGE_NAME: $(poetry version | cut -d" " -f1 | tr -d '\r' | tr '[:upper:]' '[:lower:]')
+  PACKAGE_VERSION: $(poetry version -s | tr -d '\r')
+
+tasks:
+  build:
+    cmds:
+      - task: poetry-build
+      - task: poetry-export
+      - task: docker-build
+      - task: docker-push
+
+  poetry-build:
+    cmds:
+      - poetry build
+
+  poetry-export:
+    cmds:
+      - poetry export --without-hashes -f requirements.txt -o requirements.txt
+      - poetry run python -m script.docker_requirements_torch_deletion_script requirements.txt docker-requirements.txt
+  docker-build:
+    cmds:
+      - docker build . -t dgx2.sinequa.local:5000/{{.PACKAGE_NAME}}:{{.PACKAGE_VERSION}} --build-arg requirements_file=docker-requirements.txt --build-arg package_name={{.PACKAGE_NAME}} --build-arg package_version={{.PACKAGE_VERSION}}
+  docker-push:
+    cmds:
+      - docker push dgx2.sinequa.local:5000/{{.PACKAGE_NAME}}:{{.PACKAGE_VERSION}}
+
+## THEN STILL NEED TO LOGIN AND PULL 
+## Login to the local registry : docker login sinequa:5000
+## Pull the image : docker pull sinequa:5000/<image_name_on_registry>:<version>
