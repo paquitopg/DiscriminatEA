@@ -1,0 +1,2 @@
+settings: noise_ratio: 0.3, use_time: True, use_structure: True
+	best results: hits@[1, 5, 10] = [72.49, 83.05, 86.64], mrr = 0.773

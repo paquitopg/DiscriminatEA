@@ -1,0 +1,12 @@
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [75.0, 100.0], mrr = 0.875
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [100.0, 100.0], mrr = 1.000
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [100.0, 100.0], mrr = 1.000
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [100.0, 100.0], mrr = 1.000
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [75.0, 100.0], mrr = 0.875
+settings: noise_ratio: 0.3, use_time: False, use_structure: True
+	best results: hits@[1, 5, 10] = [100.0, 100.0], mrr = 1.000

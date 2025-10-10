@@ -1,2 +1,11 @@
 .env
 poetry.lock
+/data
+/trained_models
+/logs
+/results
+/checkpoints
+/models
+/embeddings
+/alignments
+/evaluation

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simple_hhea"
-version = "1.1.0"
+version = "1.1.2"
 description = "Entity alignment on highly heterogeneous knowledge graphs."
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
@@ -10,7 +10,6 @@ license = "MIT"
 python = ">=3.10"
 transformers = "*"
 sentencepiece = "*"
-scipy = "*"
 numpy = "*"
 pandas = "*"
 tqdm = "*"

@@ -170,10 +170,7 @@ def type_aware_candidate_blocking_by_types(type_type_sim, ent_types, kg1_size, k
             top = above[order[:top_k]]
             for idx in top:
                 candidate_pairs.append((kg1_ent_id, int(idx)))
-        else:
-            top_idx = np.argsort(sims)[::-1][:top_k]
-            for idx in top_idx:
-                candidate_pairs.append((kg1_ent_id, int(idx)))
+        # If no entities meet the threshold, don't add any candidates for this entity
 
     print(f"Type-aware candidate blocking: {len(candidate_pairs)} pairs")
     return candidate_pairs
@@ -211,6 +208,170 @@ def compute_type_aware_loss_weights(alignment_pairs, type_sim,
                     loss_weights[i] += type_weight * type_sim[kg1_ent_id, kg2_matrix_id]
     
     return loss_weights
+
+
+def compute_kg_similarity(data_path, alignment_seed, gamma=0.5, use_structure=True, use_text=True):
+    """
+    Compute similarity between two knowledge graphs using structure and text similarity.
+    
+    The similarity is computed as:
+    Similarity(KG_s, KG_t) = γ · Structure_Similarity(KG_s, KG_t) + (1-γ) · Text_Similarity(KG_s, KG_t)
+    
+    Where:
+    - Structure_Similarity = (1/|S|) Σ cos(A_KG_s[e_s], A_KG_t[e_t]) for (e_s,e_t) ∈ S
+    - Text_Similarity = (1/|S|) Σ cos(T_KG_s[e_s], T_KG_t[e_t]) for (e_s,e_t) ∈ S
+    - S is the alignment seed (known aligned entities)
+    - A_KG[e] is the 1-hop neighbor vector of entity e
+    - T_KG[e] is the name embedding vector of entity e
+    
+    Args:
+        data_path (str): Path to the data directory containing KG files
+        alignment_seed (list): List of aligned entity pairs [(e_s, e_t), ...] where e_s is from KG1 and e_t is from KG2
+        gamma (float): Weight for structure similarity (1-gamma for text similarity)
+        use_structure (bool): Whether to compute structure similarity
+        use_text (bool): Whether to compute text similarity
+    
+    Returns:
+        dict: Dictionary containing overall similarity, structure similarity, and text similarity scores
+    """
+    print("Computing KG similarity...")
+    
+    # Load name embeddings for text similarity
+    text_embeddings = None
+    if use_text:
+        kg1_name_emb = np.loadtxt(os.path.join(data_path, "ent_1_emb_64.txt"))
+        kg2_name_emb = np.loadtxt(os.path.join(data_path, "ent_2_emb_64.txt"))
+        text_embeddings = np.array(kg1_name_emb.tolist() + kg2_name_emb.tolist())
+        print(f"Loaded text embeddings shape: {text_embeddings.shape}")
+    
+    # Load structural embeddings for structure similarity
+    structure_embeddings = None
+    if use_structure:
+        structure_embeddings = np.loadtxt(os.path.join(data_path, "deep_emb.txt"))
+        print(f"Loaded structural embeddings shape: {structure_embeddings.shape}")
+    
+    # Get KG sizes from entity ID files
+    with open(os.path.join(data_path, "ent_ids_1"), "r") as f:
+        kg1_size = len(f.readlines())
+    with open(os.path.join(data_path, "ent_ids_2"), "r") as f:
+        kg2_size = len(f.readlines())
+    
+    print(f"KG1 size: {kg1_size}, KG2 size: {kg2_size}")
+    
+    # Compute similarities
+    structure_similarity = 0.0
+    text_similarity = 0.0
+    
+    if len(alignment_seed) == 0:
+        print("Warning: No alignment seed provided, returning zero similarities")
+        return {
+            'overall_similarity': 0.0,
+            'structure_similarity': 0.0,
+            'text_similarity': 0.0,
+            'num_pairs': 0
+        }
+    
+    # Compute structure similarity using density difference and degree coefficients
+    if use_structure:
+        # Load triples to build adjacency matrices
+        triples, node_size, rel_size = load_triples(data_path, reverse=True)
+        
+        # Build adjacency matrices for both KGs
+        adj_matrix_kg1 = np.zeros((kg1_size, kg1_size))
+        adj_matrix_kg2 = np.zeros((kg2_size, kg2_size))
+        
+        # Fill adjacency matrices
+        for h, r, t in triples:
+            if h < kg1_size and t < kg1_size:  # KG1 internal edge
+                adj_matrix_kg1[h, t] = 1
+                adj_matrix_kg1[t, h] = 1  # Make symmetric
+            elif h >= kg1_size and t >= kg1_size:  # KG2 internal edge
+                h_kg2 = h - kg1_size
+                t_kg2 = t - kg1_size
+                adj_matrix_kg2[h_kg2, t_kg2] = 1
+                adj_matrix_kg2[t_kg2, h_kg2] = 1  # Make symmetric
+        
+        # Compute graph densities
+        # Density = actual_edges / possible_edges
+        edges_kg1 = np.sum(adj_matrix_kg1) // 2  # Divide by 2 because matrix is symmetric
+        edges_kg2 = np.sum(adj_matrix_kg2) // 2  # Divide by 2 because matrix is symmetric
+        possible_edges_kg1 = kg1_size * (kg1_size - 1) // 2
+        possible_edges_kg2 = kg2_size * (kg2_size - 1) // 2
+        
+        density_kg1 = edges_kg1 / possible_edges_kg1 if possible_edges_kg1 > 0 else 0
+        density_kg2 = edges_kg2 / possible_edges_kg2 if possible_edges_kg2 > 0 else 0
+        
+        # Compute density similarity coefficient (0 if different, 1 if identical)
+        # Use 1 - |density1 - density2| / max(density1, density2) to normalize
+        if max(density_kg1, density_kg2) > 0:
+            density_coeff = 1.0 - abs(density_kg1 - density_kg2) / max(density_kg1, density_kg2)
+        else:
+            density_coeff = 1.0  # Both densities are 0, so they're identical
+        
+        # Compute max degrees for normalization
+        max_degree_kg1 = np.max(adj_matrix_kg1.sum(axis=1)) if np.max(adj_matrix_kg1.sum(axis=1)) > 0 else 1
+        max_degree_kg2 = np.max(adj_matrix_kg2.sum(axis=1)) if np.max(adj_matrix_kg2.sum(axis=1)) > 0 else 1
+        
+        # Compute mean degree coefficient across alignment seed
+        degree_coeffs = []
+        for e_s, e_t in alignment_seed:
+            # e_s is from KG1, e_t is from KG2 (global ID)
+            if e_s < kg1_size and e_t >= kg1_size:
+                # Convert KG2 global entity ID to local ID
+                e_t_local = e_t - kg1_size
+                if e_t_local < kg2_size:
+                    # Compute degree similarity coefficient
+                    degree_s = np.sum(adj_matrix_kg1[e_s])  # Degree of entity e_s in KG1
+                    degree_t = np.sum(adj_matrix_kg2[e_t_local])  # Degree of entity e_t_local in KG2
+                    
+                    # Normalize degrees
+                    norm_degree_s = degree_s / max_degree_kg1
+                    norm_degree_t = degree_t / max_degree_kg2
+                    
+                    # Degree similarity coefficient (1 if same normalized degree, 0 if maximum difference)
+                    degree_coeff = 1.0 - abs(norm_degree_s - norm_degree_t)
+                    degree_coeffs.append(degree_coeff)
+        
+        mean_degree_coeff = np.mean(degree_coeffs) if degree_coeffs else 0.0
+        
+        # Structure similarity = density_coefficient * mean_degree_coefficient
+        structure_similarity = density_coeff * mean_degree_coeff
+        
+        print(f"Graph densities - KG1: {density_kg1:.4f}, KG2: {density_kg2:.4f}")
+        print(f"Density coefficient: {density_coeff:.4f}")
+        print(f"Mean degree coefficient: {mean_degree_coeff:.4f}")
+        print(f"Structure similarity: {structure_similarity:.4f}")
+    
+    # Compute text similarity
+    if use_text and text_embeddings is not None:
+        text_cosines = []
+        for e_s, e_t in alignment_seed:
+            # e_s is from KG1, e_t is from KG2 (global ID)
+            if e_s < kg1_size and e_t >= kg1_size:
+                text_vec_s = text_embeddings[e_s]  # KG1 entity embedding
+                text_vec_t = text_embeddings[e_t]  # KG2 entity embedding (e_t is already the global ID)
+                
+                # Compute cosine similarity
+                if np.linalg.norm(text_vec_s) > 0 and np.linalg.norm(text_vec_t) > 0:
+                    cos_sim = np.dot(text_vec_s, text_vec_t) / (np.linalg.norm(text_vec_s) * np.linalg.norm(text_vec_t))
+                    text_cosines.append(cos_sim)
+                else:
+                    text_cosines.append(0.0)
+        
+        text_similarity = np.mean(text_cosines) if text_cosines else 0.0
+        print(f"Text similarity: {text_similarity:.4f}")
+    
+    # Compute overall similarity
+    overall_similarity = gamma * structure_similarity + (1 - gamma) * text_similarity
+    
+    print(f"Overall KG similarity (gamma={gamma}): {overall_similarity:.4f}")
+    
+    return {
+        'overall_similarity': overall_similarity,
+        'structure_similarity': structure_similarity,
+        'text_similarity': text_similarity,
+        'num_pairs': len(alignment_seed)
+    }
 
 def neigh_ent_dict_gene(rel_triples, max_length, pad_id=None):
     """

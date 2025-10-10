@@ -35,12 +35,13 @@ class Time2Vec(nn.Module):
 ### Main Model, Simple_HHEA
 class Simple_HHEA(nn.Module):
     def __init__(self, time_span, ent_name_emb, ent_time_emb, ent_dw_emb, 
-                ent_types, use_structure=True, use_time=True, emb_size=64, 
+                ent_types, use_name=True, use_structure=True, use_time=True, emb_size=64, 
                 structure_size=8, time_size=8, device="cuda"):
 
         super(Simple_HHEA, self).__init__()
 
         self.device = device
+        self.use_name = use_name
         self.use_structure = use_structure
         self.use_time = use_time
 
@@ -54,10 +55,22 @@ class Simple_HHEA(nn.Module):
             self.ent_types = None
             self.num_entity_types = 0
 
-        linear_size_1 = self.emb_size
+        linear_size_1 = 0
         
         print("debugging in model.py")
-        print(self.use_time)
+        print(f"use_name: {self.use_name}, use_time: {self.use_time}, use_structure: {self.use_structure}")
+        
+        # Initialize name embeddings and layers
+        if self.use_name:
+            linear_size_1 += self.emb_size
+            self.ent_name_emb = torch.tensor(ent_name_emb).to(self.device).float()
+            self.fc_name_0 = nn.Linear(self.ent_name_emb.shape[-1], emb_size)
+            self.fc_name = nn.Linear(emb_size, emb_size)
+        else:
+            self.ent_name_emb = None
+            self.fc_name_0 = None
+            self.fc_name = None
+        
         if self.use_time:
             linear_size_1 += self.time_size
             self.ent_time_emb = torch.tensor(ent_time_emb).to(self.device).float()
@@ -75,16 +88,15 @@ class Simple_HHEA(nn.Module):
         
         self.fc_final = nn.Linear(linear_size_1, emb_size)
 
-        self.ent_name_emb = torch.tensor(ent_name_emb).to(self.device).float()
-        self.fc_name_0 = nn.Linear(self.ent_name_emb.shape[-1], emb_size)
-        self.fc_name = nn.Linear(emb_size, emb_size)
-
         self.dropout = nn.Dropout(p=0.3)
         self.activation = nn.ReLU()
 
     def forward(self):
-        ent_name_feature = self.fc_name(self.fc_name_0(self.dropout(self.ent_name_emb)))
-        features = [ent_name_feature]
+        features = []
+
+        if self.use_name:
+            ent_name_feature = self.fc_name(self.fc_name_0(self.dropout(self.ent_name_emb)))
+            features.append(ent_name_feature)
 
         if self.use_time:
             time_span_feature = self.time2vec(self.time_span_index)

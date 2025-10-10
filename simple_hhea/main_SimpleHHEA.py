@@ -5,9 +5,9 @@ import numpy as np
 from tqdm import tqdm
 import torch
 
-from discriminatEA.CSLS_ import eval_alignment_by_sim_mat
-from discriminatEA.model import Simple_HHEA
-from discriminatEA.utils import *
+from simple_hhea.CSLS_ import eval_alignment_by_sim_mat
+from simple_hhea.utils import *
+from simple_hhea.model import Simple_HHEA
 
 
 ### load embeddings
@@ -103,10 +103,11 @@ if __name__ == "__main__":
     ###### ablation settings
     parser.add_argument("--add_noise", action="store_true")
     parser.add_argument("--noise_ratio", type=float, default=0.3)
+    parser.add_argument("--no_name", action="store_true", help="Disable name embeddings")
     parser.add_argument("--no_structure", action="store_true")
     parser.add_argument("--no_time", action="store_true")
     parser.add_argument("--no_types", action="store_true", help="Disable type-aware training")
-    parser.add_argument("--type_threshold", type=float, default=0.3, help="Type similarity threshold for candidate blocking")
+    parser.add_argument("--type_threshold", type=float, default=0.7, help="Type similarity threshold for candidate blocking")
     parser.add_argument("--type_weight", type=float, default=0.5, help="Weight for type compatibility in loss")
     ###### training settings
     parser.add_argument("--lr", type=float, default=0.01)
@@ -123,8 +124,9 @@ if __name__ == "__main__":
     device = f"cuda:{args.cuda}" if torch.cuda.is_available() and args.cuda >= 0 else "cpu"
     use_time = ("icews_wiki" in data or "icews_yago" in data) and not args.no_time
     use_structure = not args.no_structure
+    use_name = not args.no_name
     use_types = not args.no_types
-    print(f"start exp: noise_ratio={args.noise_ratio}, data=\"{args.data}\", use_structure={use_structure}, use_time={use_time}")
+    print(f"start exp: noise_ratio={args.noise_ratio}, data=\"{args.data}\", use_name={use_name}, use_structure={use_structure}, use_time={use_time}, use_types={use_types} with type_weight={args.type_weight}")
     ### random settings
     fixed(args.random_seed)
 
@@ -145,12 +147,16 @@ if __name__ == "__main__":
     # ent_types_tensor is already a torch.LongTensor from utils.load_entity_types
 
     ### model
+    # Conditionally use name embeddings based on use_name flag
+    name_emb_for_model = ent_name_emb if use_name else None
+    
     model = Simple_HHEA(
         time_span=1+27*13,
-        ent_name_emb=ent_name_emb,
+        ent_name_emb=name_emb_for_model,
         ent_time_emb=ent_time_emb,
         ent_dw_emb=ent_dw_emb,
         ent_types=ent_types_tensor,
+        use_name=use_name,
         use_structure=use_structure,
         use_time=use_time,
         emb_size=64,
@@ -167,7 +173,7 @@ if __name__ == "__main__":
     if args.save_model:
         if not os.path.exists(trained_model_dir):
             os.makedirs(trained_model_dir)
-        model_save_path = os.path.join(trained_model_dir, f"{data}_simple_hhea_model_structure{use_structure}_time{use_time}_types{use_types}.pt")
+        model_save_path = os.path.join(trained_model_dir, f"{data}_simple_hhea_model_name{use_name}_structure{use_structure}_time{use_time}_types{use_types}weight{args.type_weight}.pt")
     else:
         model_save_path = None
 
@@ -216,7 +222,7 @@ if __name__ == "__main__":
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
     with open(os.path.join(result_dir, f"{data}_result_file_mlp.txt"), "a+", encoding="utf-8") as fw:
-        fw.write(f"settings: noise_ratio: {args.noise_ratio}, use_time: {use_time}, use_structure: {use_structure}, use_types: {use_types}\n\tbest results: hits@[1, 5, 10] = {best_acc}, mrr = {best_mrr:.3f}\n")
+        fw.write(f"settings: noise_ratio: {args.noise_ratio}, use_name: {use_name}, use_time: {use_time}, use_structure: {use_structure}, use_types: {use_types}, type_weight: {args.type_weight}, type_threshold: {args.type_threshold}\n\tbest results: hits@[1, 5, 10] = {best_acc}, mrr = {best_mrr:.3f}\n")
 
     if args.save_model:
         print(f"Best model saved to {model_save_path}")
