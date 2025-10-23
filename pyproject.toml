@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "simple_hhea"
+name = "discriminate_ea"
 version = "1.1.2"
 description = "Entity alignment on highly heterogeneous knowledge graphs."
 authors = ["Your Name <your.email@example.com>"]
@@ -7,7 +7,7 @@ readme = "README.md"
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.10,<3.15"
 transformers = "*"
 sentencepiece = "*"
 numpy = "*"
@@ -15,7 +15,7 @@ pandas = "*"
 tqdm = "*"
 networkx = "*"
 gensim = "*"
-torch = {version = "^2.7.1", source = "pytorch-gpu"}
+torch = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

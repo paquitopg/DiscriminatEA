@@ -16,11 +16,11 @@ python produce_embedding.py --dataset <dataset_name> [--no_types]
 """
 
 from argparse import ArgumentParser, Namespace
-from discriminatEA.process_name_embedding import main as process_name_embedding
-from discriminatEA.feature_perprocessing.preproccess import main as process_deepwalk_embedding
-from discriminatEA.feature_perprocessing.longterm.main import main as process_longterm_embedding
-from discriminatEA.feature_perprocessing.get_deep_emb import main as process_deep_emb
-from discriminatEA.process_type_embedding import main as process_type_embedding
+from discriminate_ea.process_name_embedding import main as process_name_embedding
+from discriminate_ea.feature_perprocessing.preproccess import main as process_deepwalk_embedding
+from discriminate_ea.feature_perprocessing.longterm.main import main as process_longterm_embedding
+from discriminate_ea.feature_perprocessing.get_deep_emb import main as process_deep_emb
+from discriminate_ea.process_type_embedding import main as process_type_embedding
 
 if __name__ == "__main__":
     parser = ArgumentParser()

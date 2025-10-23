@@ -1,10 +1,11 @@
 import os
 import argparse
 import torch
+import torch.nn as nn
 import numpy as np
-from simple_hhea.model import Simple_HHEA
-from simple_hhea.utils import load_embeddings, load_alignments, get_train_set, type_aware_candidate_blocking_by_types
-from simple_hhea.CSLS_ import eval_alignment_by_sim_mat
+from discriminate_ea.model import DiscriminatEA
+from discriminate_ea.utils import load_embeddings, load_alignments, get_train_set, type_aware_candidate_blocking_by_types
+from discriminate_ea.CSLS_ import eval_alignment_by_sim_mat
 
 def cosine_similarity(x, y):
     """Compute cosine similarity between two sets of vectors."""
@@ -56,7 +57,6 @@ def get_type_aware_top_k_candidates(scores, type_compatible_pairs, k=10):
 
 def add_noise_to_model_embeddings(model, noise_ratio, noise_type, device):
     """Add white noise to specific embedding types in the model."""
-    import torch.nn as nn
     
     print(f"Adding {noise_type} noise with ratio {noise_ratio} to model embeddings...")
     
@@ -82,12 +82,6 @@ def add_noise_to_model_embeddings(model, noise_ratio, noise_type, device):
                 model.ent_dw_emb.data += noise.to(device)
                 print(f"Added noise to structural embeddings: shape {model.ent_dw_emb.shape}")
         
-        if noise_type in ["time", "both"]:
-            # Add noise to time embeddings if they exist
-            if hasattr(model, 'ent_time_emb') and model.ent_time_emb is not None:
-                noise = torch.randn_like(model.ent_time_emb) * noise_ratio
-                model.ent_time_emb.data += noise.to(device)
-                print(f"Added noise to time embeddings: shape {model.ent_time_emb.shape}")
     
     # Print noise impact
     if original_norms:
@@ -155,7 +149,7 @@ def evaluate_candidate_predictions(candidates_file, ground_truth, hit_k=[1, 5, 1
 
 def main():
     # 1. Parse arguments
-    parser = argparse.ArgumentParser(description="Generate alignment candidates using a trained Simple-HHEA model.")
+    parser = argparse.ArgumentParser(description="Generate alignment candidates using a trained DiscriminatEA model.")
     parser.add_argument("--data", type=str, required=True, help="Name of the dataset (folder under data/)")
     parser.add_argument("--model-path", type=str, required=True, help="Path to the trained model .pt file")
     parser.add_argument("--cuda", type=int, default=0, help="CUDA device index (default: 0)")
@@ -163,7 +157,6 @@ def main():
     parser.add_argument("--num-candidates", type=int, default=10, help="Number of candidates per entity (default: 10)")
     parser.add_argument("--scoring", type=str, default="cosine", choices=["cosine", "l2", "csls"], 
                        help="Scoring method (default: cosine)")
-    parser.add_argument("--no_time", action="store_true")
     parser.add_argument("--no_structure", action="store_true", default=False)
     parser.add_argument("--no_types", action="store_true", help="Disable type-aware candidate blocking")
     parser.add_argument("--type_threshold", type=float, default=0.0, help="Type similarity threshold for candidate blocking (0.0 = disabled)")
@@ -179,7 +172,6 @@ def main():
     args = parser.parse_args()
 
     data = args.data
-    use_time = ("icews_wiki" in data or "icews_yago" in data) and not args.no_time
     use_structure = not args.no_structure
     use_name = not args.no_name
     use_types = not args.no_types
@@ -189,23 +181,17 @@ def main():
 
     # 3. Load dataset embeddings
     data_path = os.path.join("data", args.data)
-    ent_name_emb, ent_dw_emb, ent_time_emb, ent_types, type_compatibility_matrix = load_embeddings(data_path, add_noise=False, noise_ratio=0.0, use_structure=True, use_time=use_time, use_types=use_types)
+    ent_name_emb, ent_dw_emb, ent_types, type_compatibility_matrix = load_embeddings(data_path, add_noise=False, noise_ratio=0.0, use_structure=True, use_types=use_types)
 
     # 4. Recreate model architecture
-    print("debugging in predict_alignment.py")
-    print(use_time)
-    model = Simple_HHEA(
-        time_span=1+27*13,
+    model = DiscriminatEA(
         ent_name_emb=ent_name_emb,
-        ent_time_emb=ent_time_emb,
         ent_dw_emb=ent_dw_emb,
         ent_types=ent_types,
         use_name=use_name,
         use_structure=use_structure,
-        use_time=use_time,
         emb_size=64,
         structure_size=8,
-        time_size=8,
         device=device
     )
     model = model.to(device)

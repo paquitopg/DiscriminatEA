@@ -9,3 +9,4 @@ poetry.lock
 /embeddings
 /alignments
 /evaluation
+docker-requirements.txt

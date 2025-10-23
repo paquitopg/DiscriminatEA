@@ -124,7 +124,7 @@ The framework supports various knowledge graph datasets including:
 Key configuration options can be found in:
 - `pyproject.toml` - Package dependencies and metadata
 - `launchers/` - Deployment-specific configurations
-- Model parameters in `discriminatEA/model.py`
+- Model parameters in `discriminate_ea/model.py`
 
 ## 📈 Evaluation Metrics
 
@@ -133,10 +133,6 @@ The framework provides comprehensive evaluation including:
 - Mean Reciprocal Rank (MRR)
 - CSLS-based similarity scoring
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -144,28 +140,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Paco Goze** - [@paquitopg](https://github.com/paquitopg)
-
-## 📚 Citation
-
-If you use DiscriminatEA in your research, please cite:
-
-```bibtex
-@software{discriminatEA2025,
-  title={DiscriminatEA: Entity Alignment on Highly Heterogeneous Knowledge Graphs},
-  author={Paco Goze},
-  year={2025},
-  url={https://github.com/paquitopg/DiscriminatEA}
-}
-```
-
-## 🔗 Related Work
-
-This implementation builds upon several state-of-the-art techniques in knowledge graph embedding and entity alignment, including:
-- TransE, TransH, TransR, TransD embeddings
-- RDGCN for relational graph convolutional networks
-- OpenKE framework integration
-- Long-term temporal embeddings
-
----
 
 For more detailed documentation and examples, please refer to the individual module documentation and example scripts in the repository.

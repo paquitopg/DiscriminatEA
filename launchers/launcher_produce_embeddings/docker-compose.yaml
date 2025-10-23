@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  simple_hhea_embedding_service:
-    image:  sinequa:5000/simple_hhea:0.1.0
-    container_name: simple_hhea_embedding_service
+  discriminate_ea_embedding_service:
+    image:  sinequa:5000/discriminate_ea:0.1.0
+    container_name: discriminate_ea_embedding_service
 
     cpuset: ${CPU_IDS}
 
@@ -28,13 +28,13 @@ services:
     working_dir: /workspace
 
     volumes:
-      - /raid/ml-data/paco/simple_hhea_data:/workspace/data
-      - /home/paco/projects/simple-HHEA/trained_models:/workspace/trained_models
-      - /home/paco/projects/simple-HHEA/results:/workspace/results
+      - /raid/ml-data/paco/discriminate_ea_data:/workspace/data
+      - /home/paco/projects/discriminateEA/trained_models:/workspace/trained_models
+      - /home/paco/projects/discriminateEA/results:/workspace/results
       - /tmp/hf_cache_${USER_UID}:/tmp/hf_cache
 
     command:
       [
-        "python", "-m", "discriminatEA.produce_embedding",
+        "python", "-m", "discriminate_ea.produce_embedding",
         "--dataset", "${DATASET}"
       ]
